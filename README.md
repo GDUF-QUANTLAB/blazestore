@@ -104,6 +104,7 @@ git clone https://github.com/GDUF-QUANTLAB/blazestore.git
 cd blazestore
 uv sync
 uv run ruff check .
+uv run ruff format .
 uv run pytest
 uv build
 ```

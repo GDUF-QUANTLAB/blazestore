@@ -22,6 +22,7 @@ Example:
 ```bash
 git switch -c feat/your-change
 uv run ruff check .
+uv run ruff format .
 uv run pytest
 uv build
 git add .
@@ -34,7 +35,7 @@ git push -u origin feat/your-change
 - Keep each PR focused on one problem.
 - Include or update tests when behavior changes.
 - Update `README.md` when public usage changes.
-- Ensure CI is green (`ruff`, `pytest`, `build`).
+- Ensure CI is green (`ruff check`, `ruff format --check`, `pytest`, `build`).
 
 ## Commit Message Guidance
 
@@ -43,4 +44,3 @@ Use clear, imperative commit messages, for example:
 - `Harden local store path validation`
 - `Add SQL table resolution tests`
 - `Clarify README install instructions`
-

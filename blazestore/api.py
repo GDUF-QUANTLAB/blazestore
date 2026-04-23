@@ -108,9 +108,7 @@ def sql(query: str, lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
             convertor[tb] = f"read_parquet('{db_path}/**/*.parquet')"
 
     table_pattern = "|".join(re.escape(k) for k in table_names)
-    pattern = re.compile(
-        rf"(?<![\w.'\"])({table_pattern})(?![\w.'\"])"
-    )
+    pattern = re.compile(rf"(?<![\w.'\"])({table_pattern})(?![\w.'\"])")
     new_query = pattern.sub(lambda m: convertor[m.group(0)], query)
 
     if partitioned_sources:
