@@ -1,7 +1,6 @@
-"""
-BlazeStore - 本地Parquet存储和数据库集成
+"""BlazeStore - 本地 Parquet 存储管理器
 
-提供本地Parquet文件存储、MySQL和ClickHouse数据库集成功能。
+提供本地 Parquet 文件存储、读取和 SQL 查询功能。
 
 Examples:
     >>> from blazestore import LocalStore, get_settings
@@ -13,29 +12,37 @@ Examples:
 """
 
 from .api import (
+    check_table,
+    copy_table,
+    delete_table,
+    get_actual_mtime,
+    get_table_info,
     has,
     list_tables,
+    optimize_table,
     put,
     read,
+    rename_table,
     sql,
     tb_path,
-)
-from .clients import (
-    read_ck,
-    read_mysql,
 )
 from .config import get_settings
 from .local import LocalStore
 
 __all__ = [
-    "read_ck",
-    "read_mysql",
     "LocalStore",
+    "check_table",
+    "copy_table",
+    "delete_table",
+    "get_actual_mtime",
     "get_settings",
-    "sql",
+    "get_table_info",
     "has",
     "list_tables",
+    "optimize_table",
     "put",
     "read",
+    "rename_table",
+    "sql",
     "tb_path",
 ]

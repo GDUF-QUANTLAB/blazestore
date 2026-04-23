@@ -46,6 +46,3 @@ def get_settings() -> Dynaconf:
 
         CONFIG_PATH.write_text(content)
     return Dynaconf(settings_files=[CONFIG_PATH])
-
-
-_settings = get_settings()

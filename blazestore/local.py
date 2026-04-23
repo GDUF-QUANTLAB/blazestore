@@ -52,7 +52,7 @@ class LocalStore:
             bool: 是否为分区表。
         """
         tbpath = self.base_path.joinpath(*tb_name.split("/"))
-        if not tbpath.exists():
+        if not tbpath.exists() or not tbpath.is_dir():
             return False
 
         for item in tbpath.iterdir():
@@ -168,6 +168,9 @@ class LocalStore:
             if not tbpath.exists():
                 raise PathError(f"Path {path} does not exist")
 
+            if tbpath.is_file():
+                return pl.scan_parquet(tbpath)
+
             is_partitioned = self._is_partitioned_table(path)
             if is_partitioned:
                 return pl.scan_parquet(tbpath / "**/*.parquet", hive_partitioning=True)
@@ -257,7 +260,10 @@ class LocalStore:
             if not tbpath.exists():
                 raise PathError(f"Table {tb_name} does not exist")
 
-            shutil.rmtree(tbpath)
+            if tbpath.is_file():
+                tbpath.unlink()
+            else:
+                shutil.rmtree(tbpath)
         except Exception as e:
             if isinstance(e, PathError):
                 raise
@@ -318,8 +324,14 @@ class LocalStore:
                 raise PathError(f"Table {src_name} does not exist")
             if dst_path.exists() and dst_path.is_dir() and any(dst_path.iterdir()):
                 raise PathError(f"Table {dst_name} already exists")
+            if dst_path.exists() and dst_path.is_file():
+                raise PathError(f"Table {dst_name} already exists")
 
-            shutil.copytree(src_path, dst_path)
+            if src_path.is_file():
+                dst_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_path, dst_path)
+            else:
+                shutil.copytree(src_path, dst_path)
         except Exception as e:
             if isinstance(e, PathError):
                 raise
@@ -375,7 +387,7 @@ class LocalStore:
             if not self.has(tb_name):
                 raise PathError(f"Table {tb_name} does not exist")
 
-            self.read(tb_name)
+            self.read(tb_name).head(1).collect()
             return True
         except Exception:
             return False
@@ -404,7 +416,9 @@ class LocalStore:
         if not tbpath.exists():
             raise PathError(f"Table {tb_name} does not exist")
 
-        parquet_files = list(tbpath.rglob("*.parquet"))
+        parquet_files = (
+            [tbpath] if tbpath.is_file() else list(tbpath.rglob("*.parquet"))
+        )
         if not parquet_files:
             raise FileOperationError(f"No parquet files found in table {tb_name}")
 

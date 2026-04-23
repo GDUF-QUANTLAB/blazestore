@@ -14,7 +14,14 @@ import polars as pl
 from .local import LocalStore
 from .parse import extract_table_names_from_sql
 
-_store = LocalStore()
+_store: LocalStore | None = None
+
+
+def _get_store() -> LocalStore:
+    global _store
+    if _store is None:
+        _store = LocalStore()
+    return _store
 
 
 def tb_path(path: str = "") -> Path:
@@ -27,9 +34,10 @@ def tb_path(path: str = "") -> Path:
     Returns:
         Path: 完整路径
     """
+    store = _get_store()
     if path:
-        return _store.base_path.joinpath(*path.split("/"))
-    return _store.base_path
+        return store.base_path.joinpath(*path.split("/"))
+    return store.base_path
 
 
 def put(
@@ -48,17 +56,17 @@ def put(
         path: 相对路径
         partitions: 分区列名列表（可选）
     """
-    _store.put(df, path, partitions=partitions)
+    _get_store().put(df, path, partitions=partitions)
 
 
 def has(path: str) -> bool:
     """判断路径是否存在"""
-    return _store.has(path)
+    return _get_store().has(path)
 
 
 def read(path: str) -> pl.DataFrame | pl.LazyFrame:
     """读取数据"""
-    return _store.read(path)
+    return _get_store().read(path)
 
 
 def sql(query: str, lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
@@ -69,6 +77,7 @@ def sql(query: str, lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
         query: SQL查询字符串
         lazy: 是否返回LazyFrame（默认True）
     """
+    store = _get_store()
     tbs = extract_table_names_from_sql(query)
     if not tbs:
         if not lazy:
@@ -81,7 +90,7 @@ def sql(query: str, lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
 
     for i, tb in enumerate(table_names):
         db_path = tb_path(tb)
-        if _store._is_partitioned_table(tb):
+        if store._is_partitioned_table(tb):
             alias = f"__tb_{i}"
             partitioned_sources[alias] = pl.scan_parquet(
                 db_path / "**/*.parquet",
@@ -103,39 +112,39 @@ def sql(query: str, lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
 
 def list_tables() -> list[str]:
     """列出所有表"""
-    return _store.list_tables()
+    return _get_store().list_tables()
 
 
 def get_table_info(tb_name: str) -> dict:
     """获取表信息"""
-    return _store.get_table_info(tb_name)
+    return _get_store().get_table_info(tb_name)
 
 
 def delete_table(tb_name: str) -> None:
     """删除表"""
-    _store.delete_table(tb_name)
+    _get_store().delete_table(tb_name)
 
 
 def rename_table(old_name: str, new_name: str) -> None:
     """重命名表"""
-    _store.rename_table(old_name, new_name)
+    _get_store().rename_table(old_name, new_name)
 
 
 def copy_table(src_name: str, dst_name: str) -> None:
     """复制表"""
-    _store.copy_table(src_name, dst_name)
+    _get_store().copy_table(src_name, dst_name)
 
 
 def optimize_table(tb_name: str) -> None:
     """优化表（合并小文件）"""
-    _store.optimize_table(tb_name)
+    _get_store().optimize_table(tb_name)
 
 
 def check_table(tb_name: str) -> bool:
     """检查表完整性"""
-    return _store.check_table(tb_name)
+    return _get_store().check_table(tb_name)
 
 
 def get_actual_mtime(tb_name: str) -> str:
     """获取表数据的实际修改时间"""
-    return _store.get_actual_mtime(tb_name)
+    return _get_store().get_actual_mtime(tb_name)
