@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling>=1.26.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "blazestore"
+dynamic = ["version"]
+description = "Local Parquet storage and database helpers for Polars workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "quant-lab contributors" }]
+keywords = ["polars", "parquet", "clickhouse", "mysql", "dataframe"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Database",
+  "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+  "clickhouse_df @ git+https://github.com/GDUF-QUANTLAB/clickhouse_df.git",
+  "connectorx>=0.4.3",
+  "dynaconf>=3.2.0",
+  "loguru>=0.7.0",
+  "polars>=0.20.0",
+  "pymysql>=1.1.0",
+  "sqlalchemy>=2.0.0",
+  "sqlparse>=0.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/GDUF-QUANTLAB/blazestore"
+Repository = "https://github.com/GDUF-QUANTLAB/blazestore"
+Issues = "https://github.com/GDUF-QUANTLAB/blazestore/issues"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0.0",
+  "ruff>=0.11.0",
+]
+
+[tool.hatch.version]
+path = "blazestore/__version__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["blazestore"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "blazestore",
+  "README.md",
+  "pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
