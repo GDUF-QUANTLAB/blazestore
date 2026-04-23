@@ -107,3 +107,8 @@ uv run ruff check .
 uv run pytest
 uv build
 ```
+
+## Contributing
+
+Contribution workflow and PR expectations are documented in
+[CONTRIBUTING.md](./CONTRIBUTING.md).
