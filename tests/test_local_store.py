@@ -176,3 +176,58 @@ def test_module_level_api_uses_configured_store(
     optimize_table("prices_archive")
     delete_table("prices_archive")
     assert not has("prices_archive")
+
+
+def test_sql_queries_simple_join_partitioned_and_file_tables(
+    tmp_path: Path,
+    sample_df: pl.DataFrame,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(api, "_store", LocalStore(tmp_path))
+    symbols = pl.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "NVDA"],
+            "sector": ["Tech", "Tech", "AI"],
+        }
+    )
+
+    put(sample_df, "prices")
+    put(symbols, "symbols.parquet")
+    put(sample_df, "prices_by_date", partitions=["date"])
+
+    simple = sql("SELECT symbol FROM prices WHERE price > 400", lazy=False)
+    assert set(simple["symbol"]) == {"MSFT", "NVDA"}
+
+    joined = sql(
+        """
+        SELECT p.symbol, s.sector
+        FROM prices p
+        JOIN symbols s ON p.symbol = s.symbol
+        WHERE s.sector = 'Tech'
+        """,
+        lazy=False,
+    )
+    assert set(joined["symbol"]) == {"AAPL", "MSFT"}
+
+    partitioned = sql(
+        "SELECT symbol FROM prices_by_date WHERE date = '2024-01-01'",
+        lazy=False,
+    )
+    assert set(partitioned["symbol"]) == {"AAPL", "NVDA"}
+
+
+def test_sql_does_not_replace_table_names_inside_string_literals(
+    tmp_path: Path,
+    sample_df: pl.DataFrame,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(api, "_store", LocalStore(tmp_path))
+    put(sample_df, "prices")
+
+    result = sql(
+        "SELECT 'prices' AS label, symbol FROM prices WHERE symbol = 'AAPL'",
+        lazy=False,
+    )
+
+    assert result["label"].to_list() == ["prices"]
+    assert result["symbol"].to_list() == ["AAPL"]

@@ -90,6 +90,11 @@ def sql(query: str, lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
 
     for i, tb in enumerate(table_names):
         db_path = tb_path(tb)
+        if not db_path.exists():
+            file_path = tb_path(f"{tb}.parquet")
+            if file_path.exists():
+                db_path = file_path
+
         if store._is_partitioned_table(tb):
             alias = f"__tb_{i}"
             partitioned_sources[alias] = pl.scan_parquet(
@@ -97,10 +102,15 @@ def sql(query: str, lazy: bool = True) -> pl.DataFrame | pl.LazyFrame:
                 hive_partitioning=True,
             )
             convertor[tb] = alias
+        elif db_path.is_file():
+            convertor[tb] = f"read_parquet('{db_path}')"
         else:
             convertor[tb] = f"read_parquet('{db_path}/**/*.parquet')"
 
-    pattern = re.compile("|".join(re.escape(k) for k in table_names))
+    table_pattern = "|".join(re.escape(k) for k in table_names)
+    pattern = re.compile(
+        rf"(?<![\w.'\"])({table_pattern})(?![\w.'\"])"
+    )
     new_query = pattern.sub(lambda m: convertor[m.group(0)], query)
 
     if partitioned_sources:
