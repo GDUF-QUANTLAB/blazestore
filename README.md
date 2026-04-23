@@ -6,8 +6,16 @@ Parquet-backed tables on a local filesystem.
 
 ## Install
 
+Install directly from GitHub:
+
 ```bash
-uv sync
+uv add git+https://github.com/GDUF-QUANTLAB/blazestore.git
+```
+
+or with pip:
+
+```bash
+pip install git+https://github.com/GDUF-QUANTLAB/blazestore.git
 ```
 
 ## Basic Usage
@@ -77,9 +85,23 @@ exist, BlazeStore creates it with a default path of `~/BlazeStore`.
 queries or advanced transformations, prefer `read(...).collect()` or Polars
 lazy APIs directly.
 
+## API Overview
+
+- `LocalStore(base_path=None)`: manage a local store explicitly.
+- `put(df, path, partitions=None)`: write a DataFrame or LazyFrame.
+- `read(path)`: read a stored object as a `polars.LazyFrame`.
+- `sql(query, lazy=True)`: run simple SQL against stored tables.
+- `list_tables()`, `has(path)`, `tb_path(path="")`: inspect store contents.
+- `get_table_info(path)`, `check_table(path)`, `get_actual_mtime(path)`: inspect
+  table metadata and health.
+- `copy_table(src, dst)`, `rename_table(old, new)`, `delete_table(path)`,
+  `optimize_table(path)`: manage stored objects.
+
 ## Development
 
 ```bash
+git clone https://github.com/GDUF-QUANTLAB/blazestore.git
+cd blazestore
 uv sync
 uv run ruff check .
 uv run pytest
