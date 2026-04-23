@@ -1,9 +1,46 @@
-.venv/
+# Local Codex state
+.codex/
+
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test, lint, and coverage caches
 .pytest_cache/
 .ruff_cache/
-dist/
-build/
-*.egg-info/
+.mypy_cache/
+.pyre/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# uv
+.uv-cache/
+
+# Logs and local environment
+*.log
+.env
+.env.*
+!.env.example
+
+# Editors and OS files
+.idea/
+.vscode/
 .DS_Store
+Thumbs.db
