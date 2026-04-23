@@ -1,4 +1,5 @@
 # Local Codex state
+.codex
 .codex/
 
 # Python bytecode and caches

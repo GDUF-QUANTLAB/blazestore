@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import shutil
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import polars as pl
@@ -41,6 +41,24 @@ class LocalStore:
         else:
             self.base_path = base_path
 
+    def _resolve_path(self, path: Path | str) -> Path:
+        """
+        将用户传入的相对路径解析到存储根目录下。
+
+        BlazeStore 管理的是 base_path 内的对象，因此拒绝空路径、绝对路径和
+        包含 ".." 的路径，避免误操作到存储根目录之外。
+        """
+        path_obj = PurePath(path)
+        path_text = str(path_obj).strip()
+        if not path_text or path_text == ".":
+            raise PathError("Path must be a non-empty relative path")
+        if path_obj.is_absolute():
+            raise PathError(f"Path must be relative: {path}")
+        if ".." in path_obj.parts:
+            raise PathError(f"Path cannot contain '..': {path}")
+
+        return self.base_path.joinpath(*path_obj.parts)
+
     def _is_partitioned_table(self, tb_name: str) -> bool:
         """
         检测表是否为Hive分区表。
@@ -51,8 +69,8 @@ class LocalStore:
         Returns:
             bool: 是否为分区表。
         """
-        tbpath = self.base_path.joinpath(*tb_name.split("/"))
-        if not tbpath.exists():
+        tbpath = self._resolve_path(tb_name)
+        if not tbpath.exists() or not tbpath.is_dir():
             return False
 
         for item in tbpath.iterdir():
@@ -73,7 +91,7 @@ class LocalStore:
         if not self._is_partitioned_table(tb_name):
             return []
 
-        tbpath = self.base_path.joinpath(*tb_name.split("/"))
+        tbpath = self._resolve_path(tb_name)
         partition_cols = set()
 
         for item in tbpath.iterdir():
@@ -113,7 +131,7 @@ class LocalStore:
         if isinstance(df, pl.LazyFrame):
             df = df.collect()
         try:
-            target_path = self.base_path.joinpath(*path.split("/"))
+            target_path = self._resolve_path(path)
 
             if path.endswith(".parquet"):
                 target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -125,6 +143,8 @@ class LocalStore:
                 target_path.mkdir(parents=True, exist_ok=True)
                 df.write_parquet(target_path / "data.parquet")
         except Exception as e:
+            if isinstance(e, PathError):
+                raise
             raise FileOperationError(f"Failed to write to {path}: {e}", e) from e
 
     def has(self, path: str) -> bool:
@@ -141,7 +161,7 @@ class LocalStore:
             >>> store.has("stocks")
             True
         """
-        return self.base_path.joinpath(*path.split("/")).exists()
+        return self._resolve_path(path).exists()
 
     def read(self, path: str) -> pl.LazyFrame:
         """
@@ -164,9 +184,12 @@ class LocalStore:
             >>> df = store.read("stocks").filter(pl.col("price") > 100).collect()
         """
         try:
-            tbpath = self.base_path.joinpath(*path.split("/"))
+            tbpath = self._resolve_path(path)
             if not tbpath.exists():
                 raise PathError(f"Path {path} does not exist")
+
+            if tbpath.is_file():
+                return pl.scan_parquet(tbpath)
 
             is_partitioned = self._is_partitioned_table(path)
             if is_partitioned:
@@ -194,9 +217,11 @@ class LocalStore:
 
         tables = []
         for item in self.base_path.iterdir():
-            if item.is_dir() and not item.name.startswith("."):
+            if item.name.startswith("."):
+                continue
+            if item.is_dir() or item.suffix == ".parquet":
                 tables.append(item.name)
-        return tables
+        return sorted(tables)
 
     def get_table_info(self, tb_name: str) -> dict[str, Any]:
         """
@@ -218,15 +243,18 @@ class LocalStore:
         if not self.has(tb_name):
             raise PathError(f"Table {tb_name} does not exist")
 
-        tbpath = self.base_path.joinpath(*tb_name.split("/"))
+        tbpath = self._resolve_path(tb_name)
         df = self.read(tb_name).collect()
 
         is_partitioned = self._is_partitioned_table(tb_name)
         partitions = self._get_partition_columns(tb_name) if is_partitioned else None
+        table_type = "file"
+        if tbpath.is_dir():
+            table_type = "partitioned" if is_partitioned else "simple"
 
         return {
             "name": tb_name,
-            "type": "partitioned" if is_partitioned else "simple",
+            "type": table_type,
             "columns": list(df.columns),
             "dtypes": {
                 col: str(dtype)
@@ -253,11 +281,14 @@ class LocalStore:
             >>> store.delete_table("old_table")
         """
         try:
-            tbpath = self.base_path.joinpath(*tb_name.split("/"))
+            tbpath = self._resolve_path(tb_name)
             if not tbpath.exists():
                 raise PathError(f"Table {tb_name} does not exist")
 
-            shutil.rmtree(tbpath)
+            if tbpath.is_file():
+                tbpath.unlink()
+            else:
+                shutil.rmtree(tbpath)
         except Exception as e:
             if isinstance(e, PathError):
                 raise
@@ -279,8 +310,8 @@ class LocalStore:
             >>> store.rename_table("old_table", "new_table")
         """
         try:
-            old_path = self.base_path.joinpath(*old_name.split("/"))
-            new_path = self.base_path.joinpath(*new_name.split("/"))
+            old_path = self._resolve_path(old_name)
+            new_path = self._resolve_path(new_name)
 
             if not old_path.exists():
                 raise PathError(f"Table {old_name} does not exist")
@@ -311,15 +342,21 @@ class LocalStore:
             >>> store.copy_table("users", "users_backup")
         """
         try:
-            src_path = self.base_path.joinpath(*src_name.split("/"))
-            dst_path = self.base_path.joinpath(*dst_name.split("/"))
+            src_path = self._resolve_path(src_name)
+            dst_path = self._resolve_path(dst_name)
 
             if not src_path.exists():
                 raise PathError(f"Table {src_name} does not exist")
             if dst_path.exists() and dst_path.is_dir() and any(dst_path.iterdir()):
                 raise PathError(f"Table {dst_name} already exists")
+            if dst_path.exists() and dst_path.is_file():
+                raise PathError(f"Table {dst_name} already exists")
 
-            shutil.copytree(src_path, dst_path)
+            if src_path.is_file():
+                dst_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_path, dst_path)
+            else:
+                shutil.copytree(src_path, dst_path)
         except Exception as e:
             if isinstance(e, PathError):
                 raise
@@ -375,7 +412,7 @@ class LocalStore:
             if not self.has(tb_name):
                 raise PathError(f"Table {tb_name} does not exist")
 
-            self.read(tb_name)
+            self.read(tb_name).head(1).collect()
             return True
         except Exception:
             return False
@@ -400,11 +437,13 @@ class LocalStore:
             >>> store.get_actual_mtime("stocks")
             '2024-03-16T12:34:56.789012'
         """
-        tbpath = self.base_path.joinpath(*tb_name.split("/"))
+        tbpath = self._resolve_path(tb_name)
         if not tbpath.exists():
             raise PathError(f"Table {tb_name} does not exist")
 
-        parquet_files = list(tbpath.rglob("*.parquet"))
+        parquet_files = (
+            [tbpath] if tbpath.is_file() else list(tbpath.rglob("*.parquet"))
+        )
         if not parquet_files:
             raise FileOperationError(f"No parquet files found in table {tb_name}")
 
