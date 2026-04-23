@@ -36,46 +36,6 @@ class ConfigError(BlazeStoreError):
     pass
 
 
-class DatabaseError(BlazeStoreError):
-    """
-    数据库错误基类。
-
-    所有数据库相关错误的基类。
-    """
-
-    pass
-
-
-class ConnectionError(DatabaseError):
-    """
-    连接错误。
-
-    当数据库连接失败时抛出。
-    """
-
-    pass
-
-
-class QueryError(DatabaseError):
-    """
-    查询错误。
-
-    当SQL查询执行失败时抛出。
-    """
-
-    pass
-
-
-class WriteError(DatabaseError):
-    """
-    写入错误。
-
-    当数据写入失败时抛出。
-    """
-
-    pass
-
-
 class StorageError(BlazeStoreError):
     """
     存储错误基类。

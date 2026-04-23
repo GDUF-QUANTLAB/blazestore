@@ -54,6 +54,19 @@ def test_put_read_and_list_simple_table(
     assert_frame_equal(store.read("prices").collect(), sample_df)
 
 
+def test_paths_must_stay_inside_store(
+    tmp_path: Path,
+    sample_df: pl.DataFrame,
+) -> None:
+    store = LocalStore(tmp_path)
+
+    invalid_paths = ["", ".", "../outside", "nested/../outside", "/tmp/outside"]
+
+    for path in invalid_paths:
+        with pytest.raises(PathError):
+            store.put(sample_df, path)
+
+
 def test_put_and_read_single_parquet_file(
     tmp_path: Path,
     sample_df: pl.DataFrame,
@@ -63,7 +76,15 @@ def test_put_and_read_single_parquet_file(
     store.put(sample_df, "prices.parquet")
 
     assert (tmp_path / "prices.parquet").exists()
+    assert store.list_tables() == ["prices.parquet"]
     assert_frame_equal(store.read("prices.parquet").collect(), sample_df)
+
+    info = store.get_table_info("prices.parquet")
+    assert info["name"] == "prices.parquet"
+    assert info["type"] == "file"
+    assert info["rows"] == 3
+    assert info["partitions"] is None
+
     assert store.check_table("prices.parquet")
     assert store.get_actual_mtime("prices.parquet")
 
@@ -96,12 +117,14 @@ def test_table_management_operations(
 ) -> None:
     store = LocalStore(tmp_path)
     store.put(sample_df, "prices")
+    store.put(sample_df, "prices.parquet")
 
     info = store.get_table_info("prices")
     assert info["name"] == "prices"
     assert info["type"] == "simple"
     assert info["rows"] == 3
     assert info["partitions"] is None
+    assert store.list_tables() == ["prices", "prices.parquet"]
 
     assert store.check_table("prices")
     assert store.get_actual_mtime("prices")

@@ -36,7 +36,7 @@ def tb_path(path: str = "") -> Path:
     """
     store = _get_store()
     if path:
-        return store.base_path.joinpath(*path.split("/"))
+        return store._resolve_path(path)
     return store.base_path
 
 

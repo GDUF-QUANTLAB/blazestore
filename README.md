@@ -44,6 +44,19 @@ store.put(df, "prices_by_date", partitions=["date"])
 result = store.read("prices_by_date").collect()
 ```
 
+## Storage Objects
+
+BlazeStore manages objects under a single local store directory. There are three
+supported object shapes:
+
+- Directory tables, written as `name/data.parquet`.
+- Single Parquet files, written as `name.parquet`.
+- Hive-style partitioned tables, written as `name/column=value/*.parquet`.
+
+Paths are always relative to the store directory. Empty paths, absolute paths,
+and paths containing `..` are rejected so table operations stay inside the store.
+Writing to an existing object overwrites it.
+
 ## Convenience API
 
 BlazeStore also exposes module-level helpers backed by the configured default
@@ -59,6 +72,10 @@ result = sql("SELECT * FROM prices", lazy=False)
 
 The default store path is read from `~/.blaze/config.toml`. If the file does not
 exist, BlazeStore creates it with a default path of `~/BlazeStore`.
+
+`sql()` is intended for simple local queries over stored tables. For complex
+queries or advanced transformations, prefer `read(...).collect()` or Polars
+lazy APIs directly.
 
 ## Development
 
